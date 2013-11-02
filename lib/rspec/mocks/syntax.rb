@@ -22,13 +22,6 @@ module RSpec
       end
 
       # @api private
-      def self.warn_about_before_all_blocks(method_name)
-        (!RSpec::Mocks.usable?).tap do |warn|
-          RSpec.warning("calling #{method_name} on objects in `before(:all)` blocks is unsupported. Consider using `let` or `before(:each)` instead") if warn
-        end
-      end
-
-      # @api private
       # Enables the should syntax (`dbl.stub`, `dbl.should_receive`, etc).
       def self.enable_should(syntax_host = default_should_syntax_host)
         @warn_about_should = false
@@ -36,21 +29,18 @@ module RSpec
 
         syntax_host.class_exec do
           def should_receive(message, opts={}, &block)
-            return if ::RSpec::Mocks::Syntax.warn_about_before_all_blocks(__method__)
             ::RSpec::Mocks::Syntax.warn_unless_should_configured(__method__)
             opts[:expected_from] ||= CallerFilter.first_non_rspec_line
             ::RSpec::Mocks.expect_message(self, message.to_sym, opts, &block)
           end
 
           def should_not_receive(message, &block)
-            return if ::RSpec::Mocks::Syntax.warn_about_before_all_blocks(__method__)
             ::RSpec::Mocks::Syntax.warn_unless_should_configured(__method__)
             opts = {:expected_from => CallerFilter.first_non_rspec_line}
             ::RSpec::Mocks.expect_message(self, message.to_sym, opts, &block).never
           end
 
           def stub(message_or_hash, opts={}, &block)
-            return if ::RSpec::Mocks::Syntax.warn_about_before_all_blocks(__method__)
             ::RSpec::Mocks::Syntax.warn_unless_should_configured(__method__)
             if ::Hash === message_or_hash
               message_or_hash.each {|message, value| stub(message).and_return value }
@@ -61,13 +51,11 @@ module RSpec
           end
 
           def unstub(message)
-            return if ::RSpec::Mocks::Syntax.warn_about_before_all_blocks(__method__)
             ::RSpec::Mocks::Syntax.warn_unless_should_configured(__method__)
             ::RSpec::Mocks.space.proxy_for(self).remove_stub(message)
           end
 
           def stub_chain(*chain, &blk)
-            return if ::RSpec::Mocks::Syntax.warn_about_before_all_blocks(__method__)
             ::RSpec::Mocks::Syntax.warn_unless_should_configured(__method__)
             ::RSpec::Mocks::StubChain.stub_chain_on(self, *chain, &blk)
           end

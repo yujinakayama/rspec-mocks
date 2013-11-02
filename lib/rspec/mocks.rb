@@ -1,22 +1,19 @@
 require 'rspec/mocks/framework'
 require 'rspec/mocks/version'
+require "rspec/mocks/error_space"
 
 module RSpec
-
   module Mocks
     class << self
       attr_accessor :space
+
+      RSpec::Mocks.space = RSpec::Mocks::ErrorSpace.new
 
       def setup(host)
         (class << host; self; end).class_exec do
           include RSpec::Mocks::ExampleMethods
         end
-        self.space ||= RSpec::Mocks::Space.new
-        @usable = true
-      end
-
-      def usable?
-        @usable
+        self.space = RSpec::Mocks::Space.new
       end
 
       def verify
@@ -24,7 +21,7 @@ module RSpec
       end
 
       def teardown
-        @usable = false
+        self.space = RSpec::Mocks::ErrorSpace.new
         space.reset_all
       end
 
