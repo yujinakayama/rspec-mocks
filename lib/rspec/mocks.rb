@@ -12,6 +12,11 @@ module RSpec
           include RSpec::Mocks::ExampleMethods
         end
         self.space ||= RSpec::Mocks::Space.new
+        @usable = true
+      end
+
+      def usable?
+        @usable
       end
 
       def verify
@@ -19,6 +24,7 @@ module RSpec
       end
 
       def teardown
+        @usable = false
         space.reset_all
       end
 
