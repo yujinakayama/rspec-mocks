@@ -21,6 +21,92 @@ module RSpec
         expect(instance_methods_of(mod_2)).to include(:stub, :should_receive)
       end
 
+      shared_examples_for "configuring any instance mocks/stubs" do
+        def sandboxed
+          orig_any_instance = RSpec::Mocks.configuration.enable_any_instance_mocks?
+          yield
+        ensure
+          configure_any_instance(orig_any_instance)
+        end
+
+        around(:each) { |ex| sandboxed(&ex) }
+
+        shared_examples_for "any instance configuration" do
+          let(:expected_arguments) {
+            [
+              /Using.*without enabling/,
+              {:replacement=>"`RSpec::Mocks::Configuration.enable_any_instance_mocks = true` to enable any instance mocks/stubs"}
+            ]
+          }
+
+          it "warns once when any instance has been implicitly enabled" do
+            configure_default_any_instance
+            expect(RSpec).to receive(:deprecate).with(*expected_arguments)
+            invoke_any_instance_expectation
+          end
+
+          it "does not warn when any instance has been explicitly enabled" do
+            configure_any_instance(true)
+            expect(RSpec).not_to receive(:deprecate)
+            invoke_any_instance_expectation
+          end
+
+          it "disables any instance expectations when any_instance has been explicitly disabled" do
+            configure_any_instance(false)
+            expect { invoke_any_instance_expectation }.to raise_error(NoMethodError)
+          end
+
+          it "removes and readds the methods when the syntax is disabled then reenabled" do
+            configure_any_instance(false)
+            expect { invoke_any_instance_expectation }.to raise_error(NoMethodError)
+            configure_any_instance(true)
+            expect { invoke_any_instance_expectation }.not_to raise_error
+          end
+
+          it "removes and adds the methods when the syntax is disabled then the configuration is reset" do
+            configure_any_instance(false)
+            expect { invoke_any_instance_expectation }.to raise_error(NoMethodError)
+
+            configure_default_any_instance
+
+            expect(RSpec).to receive(:deprecate).with(*expected_arguments)
+            expect { invoke_any_instance_expectation }.not_to raise_error
+          end
+        end
+
+        context "allow_any_instance_of" do
+          def invoke_any_instance_expectation
+            allow_any_instance_of(Object).to receive(:foo)
+          end
+
+          it "includes a call site in the deprecation" do
+            configure_default_any_instance
+            expect_deprecation_with_call_site(__FILE__, __LINE__ + 1)
+            allow_any_instance_of(Object).to receive(:foo)
+          end
+
+          it_behaves_like "any instance configuration"
+        end
+
+        #context "expect_any_instance_of" do
+        #  def invoke_any_instance_expectation
+        #    @call_site = __LINE__+1
+        #    allow_any_instance_of(Object).to receive(:foo)
+        #  end
+
+        #  it_behaves_like "any instance configuration"
+        #end
+
+        #context "any_instance" do
+        #  def invoke_any_instance_expectation
+        #    @call_site = __LINE__+1
+        #    allow_any_instance_of(Object).to receive(:foo)
+        #  end
+
+        #  it_behaves_like "any instance configuration"
+        #end
+      end
+
       shared_examples_for "configuring the syntax" do
         def sandboxed
           orig_syntax = RSpec::Mocks.configuration.syntax
@@ -192,6 +278,16 @@ module RSpec
 
           def configure_default_syntax
             RSpec::Mocks.configuration.reset_syntaxes_to_default
+          end
+        end
+
+        it_behaves_like "configuring any instance mocks/stubs" do
+          def configure_any_instance(enabled)
+            RSpec::Mocks.configuration.enable_any_instance_mocks = enabled
+          end
+
+          def configure_default_any_instance
+            RSpec::Mocks.configuration.reset_any_instance_to_default
           end
         end
       end
